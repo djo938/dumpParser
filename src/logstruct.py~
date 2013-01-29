@@ -104,8 +104,6 @@ class NmeaLog(Logstruct):
         diff = self.dateEvent.timestamp - self.dateEvent.time
         print "diff = ",diff
         
-        for np in self.NewPosition:
-            np.time = np.time + diff
 
 def parseNmeaFile(File):
     return parseFile(File,NmeaLog,"nmead start")

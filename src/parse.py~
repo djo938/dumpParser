@@ -22,7 +22,6 @@ for f in os.listdir(nmeaLogDirectory):
     else:
         print "warning, not a valid file : "+nmeaLogDirectory+f
 
-#update all the New position 
 for log in nmeaLog:
     log.updateAllEventTime()
 

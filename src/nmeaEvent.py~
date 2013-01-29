@@ -55,6 +55,7 @@ class nmeaSetTimeEvent(LogEvent):
             print "(nmeaNewAltitudeEvent) WARNING, invalid nmea second, int cast : "+str(line)+" "+str(va)
             return
         
+        print self.day  ,self.month ,  self.year, self.hour ,  self.minute ,   self.second
         self.timestamp = calendar.timegm(datetime(self.year,self.month,  self.day ,self.hour,self.minute,   self.second ).utctimetuple()) 
         
         LogEvent.__init__(self,time,"nmeaNewPositionEvent",line)

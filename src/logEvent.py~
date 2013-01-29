@@ -4,7 +4,7 @@ class LogEvent(object):
     def __init__(self,time,name,line):
         self.time = time
         self.name = name
-        self.lines = [line]
+        self.lines = []
         
         #self.addLine(line)
 

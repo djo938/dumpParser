@@ -10,11 +10,11 @@ class dumpNewDumpEvent(LogEvent):
         
         splittedSpace = line.split(" ")
         
-        if(len(splittedSpace) != 4):
+        if(len(splittedSpace) != 3):
             print "WARNING, invalid line to dumpNewDumpEvent : "+line
             return
             
-        self.UID = splittedSpace[3]
+        self.UID = splittedSpace[2]
         
         LogEvent.__init__(self,time,"dumpNewDumpEvent",line)
         
