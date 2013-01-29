@@ -21,6 +21,7 @@ class Logstruct(object):
                 try:
                     timestamp = calendar.timegm(datetime(  int(line[0:4])  ,int(line[5:7]) ,  int(line[8:10]), int(line[11:13]) ,  int(line[14:16]) ,   int(line[17:19])  ).utcnow().utctimetuple()) 
                     
+                    
                     #TODO ca ne marche pas la somme, si les microseconde sont 9, ca fait xxx,9 ca devrait faire xxx,009
                     timestamp += float("0."+line[20:23])
                 except ValueError as ve:
