@@ -3,6 +3,7 @@
 from logEvent import LogEvent
 from datetime import datetime
 import calendar
+from utils import *
 
 #date -s "25 JAN 2013 11:14:11"
 class nmeaSetTimeEvent(LogEvent):
@@ -55,7 +56,8 @@ class nmeaSetTimeEvent(LogEvent):
             print "(nmeaNewAltitudeEvent) WARNING, invalid nmea second, int cast : "+str(line)+" "+str(va)
             return
         
-        self.timestamp = calendar.timegm(datetime(self.year,self.month,  self.day ,self.hour,self.minute,   self.second ).utctimetuple()) 
+        #self.timestamp = calendar.timegm(datetime(self.year,self.month,  self.day ,self.hour,self.minute,   self.second ).utctimetuple()) 
+        self.timestamp = datetime(self.year,self.month,  self.day ,self.hour,self.minute,   self.second )
         
         LogEvent.__init__(self,time,"nmeaNewPositionEvent",line)
         
@@ -74,44 +76,7 @@ class nmeaNewPositionEvent(LogEvent):
         self.time = time
         self.New = New
         
-        line = line.strip()
-        splittedDoublePoint = line.split(":")
-        
-        if len(splittedDoublePoint) != 3 and len(splittedDoublePoint) != 2:
-            print "(nmeaNewPositionEvent) WARNING, invalid nmea Position, double point split : "+str(line)
-            return
-            
-        #latitude-longitude
-        splittedDoublePoint[1] = splittedDoublePoint[1].strip()
-        splittedSpace = splittedDoublePoint[1].split(" ")
-        
-        if len(splittedDoublePoint) != 2:
-            if len(splittedSpace) != 4:
-                print "(nmeaNewPositionEvent) WARNING, invalid nmea Position, space split : "+str(line)
-                return
-                
-            self.longitude = splittedSpace[0]
-            self.latitude  = splittedSpace[1][:-1]
-            
-            #fix time
-            splittedDoublePoint[2] = splittedDoublePoint[2].strip()
-            if len(splittedDoublePoint[2]) != 6:
-                print "(nmeaNewPositionEvent) WARNING, invalid nmea Position, fix time length : "+str(line)
-                return
-                
-            self.fixtime = splittedDoublePoint[2]
-            #self.hour    = line[-6:-4]
-            #self.minute  = line[-4:-2]
-            #self.seconds = line[-2:][:2]
-        else:
-            if len(splittedSpace) != 2:
-                print "(nmeaNewPositionEvent) WARNING, invalid nmea Position, space split : "+str(line)
-                return
-                
-            self.longitude = splittedSpace[0]
-            self.latitude  = splittedSpace[1]
-            
-            self.fixtime = None
+        self.longitude,self.latitude,self.fixtime = extractPosition(line)
         
         LogEvent.__init__(self,time,"nmeaNewPositionEvent",line)
         
@@ -120,6 +85,7 @@ class nmeaNewPositionEvent(LogEvent):
         
     def __str__(self):
         return "(nmeaNewPositionEvent) at "+str(self.time)+", longitude = "+str(self.longitude)+", latitude = "+str(self.latitude)
+
 
 #altitude (not new) : 2873.60009765625 M, fix time : 101418
 #altitude : 2873.60009765625 M, fix time : 101418
@@ -130,53 +96,7 @@ class nmeaNewAltitudeEvent(LogEvent):
         self.time = time
         self.New = New
         
-        line = line.strip()
-        splittedDoublePoint = line.split(":")
-        
-        if len(splittedDoublePoint) != 3 and len(splittedDoublePoint) != 2:
-            print "(nmeaNewAltitudeEvent) WARNING, invalid nmea altitude, double point split : "+str(line)
-            return
-        
-        #altitude
-        splittedDoublePoint[1] = splittedDoublePoint[1].strip()
-        splittedSpace = splittedDoublePoint[1].split(" ")
-        
-        if len(splittedDoublePoint) != 2:
-            if len(splittedSpace) != 4:
-                print "(nmeaNewAltitudeEvent) WARNING, invalid nmea altitude, space split : "+str(line)
-                return
-        
-            try:
-                self.altitude = float(splittedSpace[0])
-            except ValueError as va:
-                print "(nmeaNewAltitudeEvent) WARNING, invalid nmea altitude, float cast : "+str(line)+" "+str(va)
-                return
-            
-            #units
-            self.unit = splittedSpace[1][:-1]
-        
-            #fix time
-            splittedDoublePoint[2] = splittedDoublePoint[2].strip()
-            if len(splittedDoublePoint[2]) != 6:
-                print "(nmeaNewAltitudeEvent) WARNING, invalid nmea altitude, fix time length : "+str(line)
-                return
-                
-            self.fixtime = splittedDoublePoint[2]
-        else:
-            if len(splittedSpace) != 2:
-                print "(nmeaNewAltitudeEvent) WARNING, invalid nmea altitude, space split : "+str(line)
-                return
-        
-            try:
-                self.altitude = float(splittedSpace[0])
-            except ValueError as va:
-                print "(nmeaNewAltitudeEvent) WARNING, invalid nmea altitude, float cast : "+str(line)+" "+str(va)
-                return
-            
-            #units
-            self.unit = splittedSpace[1]
-        
-            self.fixtime = None
+        self.altitude,self.unit,self.fixtime = extractAltitude(line)
         
         LogEvent.__init__(self,time,"nmeaNewAltitudeEvent",line)
         

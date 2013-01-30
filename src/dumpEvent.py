@@ -15,6 +15,9 @@ class dumpNewDumpEvent(LogEvent):
             return
             
         self.UID = splittedSpace[3]
+        self.UID = self.UID.replace(":","")
+        
+        self.newTime = None
         
         LogEvent.__init__(self,time,"dumpNewDumpEvent",line)
         

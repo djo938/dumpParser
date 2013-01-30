@@ -30,14 +30,17 @@ def parseFile(File,Class,NewLogTest):
         if isFirstLine(line):
             timestamp = 0
             try:
-                timestamp = calendar.timegm(datetime(  int(line[0:4])  ,int(line[5:7]) ,  int(line[8:10]), int(line[11:13]) ,  int(line[14:16]) ,   int(line[17:19])  ).utctimetuple()) 
-                timestamp += float("0."+line[20:23])
+                #timestamp = calendar.timegm(.utctimetuple()) 
+                
+                #timestamp += float("0."+line[20:23])
+                timestamp = datetime(  int(line[0:4])  ,int(line[5:7]) ,  int(line[8:10]), int(line[11:13]) ,  int(line[14:16]) ,   int(line[17:19]), int(line[20:23])*1000 )
             except ValueError as ve:
                 print "warning, failed to convert timestamp at line : "+line
                 continue
             ev = obj.newEvent(line[23:].strip(),timestamp)
             #print ev
             obj.eventList.append(ev)
+            ev.log = obj
         else:
             if len(obj.eventList) == 0:
                 print "warning, not a first line and no event in the list : {"+line+"}"
@@ -56,6 +59,7 @@ class Logstruct(object):
         pass
     
 class NmeaLog(Logstruct):
+
     def __init__(self,File):
         self.dateEvent = None
         
@@ -97,23 +101,31 @@ class NmeaLog(Logstruct):
         return ev
         
     def updateAllEventTime(self):
-        if self.dateEvent == None:
+        if not isinstance(self.dateEvent,nmeaSetTimeEvent):
             print "WARNING, no date event in file : "+str(self.File)
             return
         
         diff = self.dateEvent.timestamp - self.dateEvent.time
-        print "diff = ",diff
+        #print "diff = ",diff
         
         for np in self.NewPosition:
-            np.time = np.time + diff
+            np.newTime = np.time + diff
 
 def parseNmeaFile(File):
     return parseFile(File,NmeaLog,"nmead start")
         
 class DumpLog(Logstruct):
+    def __init__(self,File):
+    
+        self.dumpEvent = []
+        self.dumps = []
+    
+        Logstruct.__init__(self,File)
+
     def newEvent(self,line, time):
         if line.startswith("card uid :"):
             ev = dumpNewDumpEvent(time,line)
+            self.dumpEvent.append(ev)
         else:
             ev = LogEvent(time,"unknown event",line)
         
