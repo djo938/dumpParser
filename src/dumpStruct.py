@@ -63,6 +63,8 @@ class FileDump(object):
             indice += 1
             self.lines.append(line)
             
+            self.eventLog = None #link to the dump log event
+            self.nmeaEvent = None #link to the nmea log event
                 
     def __str__(self):
         return "(FileDump) at "+str(self.hour)+":"+str(self.minute)+":"+str(self.seconde)+" long="+str(self.longitude)+" lat="+str(self.latitude)+" fix="+str(self.fixtime)+", alt="+str(self.altitude)+str(self.unit)+" fix="+str(self.fixtime)
@@ -75,7 +77,9 @@ class FileDump(object):
                 f.write("Heure : "+self.eventLog.newTime.strftime("%Hh%Ms%S")+"\n")
                 continue
         
-            f.write(self.lines[i]+"\n")
+            #write sector 1c,1d,1e at their correct places
+        
+            f.write(self.lines[i])
             
             
         f.close()

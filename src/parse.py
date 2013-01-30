@@ -9,126 +9,140 @@ from nmeaEvent import nmeaNewPositionEvent
 
 #nmeaLogDirectory = "/Volumes/Home/Downloads/root/nmea/log/"
 nmeaLogDirectory = "/home/djo/developement/raw/nmea/log/"
-nmeaLog = []
+
 #dumpLogDirectory = "/Volumes/Home/Downloads/root/dumper/log/"
 dumpLogDirectory = "/home/djo/developement/raw/dumper/log/"
-dumpLog = []
+
 #dumpDirectory    = "/Volumes/Home/Downloads/root/dumper/dump/"
 dumpDirectory    = "/home/djo/developement/raw/dumper/dump/"
-dump = []
-newPositionList = []
 
+
+
+############################################################################################################
+###### DATA PARSING ########################################################################################
+############################################################################################################
 #load nmea logs
 print "parsing nmea log..."
-for f in os.listdir(nmeaLogDirectory):
-    if os.path.isfile(nmeaLogDirectory+f) and f.endswith(".log"):
-        lnmea = parseNmeaFile(nmeaLogDirectory+f)
-        for log in lnmea:
-            newPositionList.extend(log.NewPosition)
-        nmeaLog.extend(lnmea)
+nmeaLogs = [] #store all the nmea log object
+newPositionList = [] #store all the nmea New Position object from all the nmea logs
+
+for fileName in os.listdir(nmeaLogDirectory):
+    if os.path.isfile(nmeaLogDirectory+fileName) and fileName.endswith(".log"):
+        newNmeaLogs = parseNmeaFile(nmeaLogDirectory+fileName)
+        for nmeaLog in newNmeaLogs:
+            newPositionList.extend(nmeaLog.NewPosition)
+        nmeaLogs.extend(newNmeaLogs)
     else:
-        print "warning, not a valid file : "+nmeaLogDirectory+f
+        print "warning, not a valid file : "+nmeaLogDirectory+fileName
 
 #update all the New position 
-for log in nmeaLog:
-    log.updateAllEventTime()
+for nmeaLog in nmeaLogs:
+    nmeaLog.updateAllEventTime()
     
-newPositionList = sorted(newPositionList)
+newPositionList = sorted(newPositionList) #sorte the new Position Event object on the corrected datetime
 print "DONE !"
 
 print "parsing dump log..."
+dumpLogs = []
 #load dump logs
-for f in os.listdir(dumpLogDirectory):
-    if os.path.isfile(dumpLogDirectory+f) and f.endswith(".log"):
-        dumpLog.extend(parseDumpLogFile(dumpLogDirectory+f))
+for fileName in os.listdir(dumpLogDirectory):
+    if os.path.isfile(dumpLogDirectory+fileName) and fileName.endswith(".log"):
+        dumpLogs.extend(parseDumpLogFile(dumpLogDirectory+fileName))
     else:
-        print "warning, not a valid file : "+dumpLogDirectory+f
+        print "warning, not a valid file : "+dumpLogDirectory+fileName
 
+#count the dump event in all the dump logs
 count = 0
-for dl in dumpLog:
-    #print str(len(dl.dumpEvent))+" in "+dl.File
-    count += len(dl.dumpEvent)
+for dumpLog in dumpLogs:
+    #print str(len(dumpLog.dumpEvent))+" in "+dumpLog.File
+    count += len(dumpLog.dumpEvent)
 
 print "TOTAL dump : "+str(count)
 print "DONE !"
 
 print "parsing dump..."
 #load dump files 
-for f in os.listdir(dumpDirectory):
-    if os.path.isfile(dumpDirectory+f) and f.endswith(".txt"):
-        dump.append(FileDump(dumpDirectory+f))
+dumpFiles = []
+for fileName in os.listdir(dumpDirectory):
+    if os.path.isfile(dumpDirectory+fileName) and fileName.endswith(".txt"):
+        dumpFiles.append(FileDump(dumpDirectory+fileName))
     else:
-        print "warning, not a valid file : "+dumpDirectory+f
+        print "warning, not a valid file : "+dumpDirectory+fileName
         
 print "DONE !"
 
-#correlate all structures
-
-#TODO make a big list with all New Position
-
+############################################################################################################
+###### DATA CORRELATION ####################################################################################
+############################################################################################################
 
 whitoutGpsDataFiles = []
 
 #link files with dump log
-for d in dump:
-    #find a valid dumplog
-    for limite in range(1,3): #try perfect math, then 1 second math, and then 2 second match
+for dumpFile in dumpFiles:
+    
+    ### FIND A VALID ENTRY IN THE DUMP LOG ###
+    
+    for limite in range(1,3): #try perfect match, then 1 second math, and then 2 second match
         dumpEventMatch = []
-        for dl in dumpLog:
-            for de in dl.dumpEvent:
-                #print "<"+d.UID+"> vs <"+de.UID+">"
-                if d.UID == de.UID:
+        for dumpLog in dumpLogs: #for all log file
+            for de in dumpLog.dumpEvent: #for all dump event
+                #print "<"+dumpFile.UID+"> vs <"+de.UID+">"
+                if dumpFile.UID == de.UID: #match on UID ?
                     dumpEventTime = de.time.time()
                     
                     dumpEventSeconds = (((dumpEventTime.hour * 60) + dumpEventTime.minute) * 60 ) + dumpEventTime.second
-                    fileSeconds      = (((d.time.hour * 60) + d.time.minute) * 60 ) + d.time.second
+                    fileSeconds      = (((dumpFile.time.hour * 60) + dumpFile.time.minute) * 60 ) + dumpFile.time.second
                     diff = dumpEventSeconds - fileSeconds
                     
-                    if diff < limite and diff > (-1 * limite):
+                    if diff < limite and diff > (-1 * limite): #match on time ?
                         #print "match"
                         dumpEventMatch.append(de)
-                        #print str(dumpEventTime)+" vs "+str(d.time)
+                        #print str(dumpEventTime)+" vs "+str(dumpFile.time)
                            
         #check dumpEventMatch, if ==0, if > 1, if ==1
-        if len(dumpEventMatch) == 0:
-            d.eventLog = None
-        elif len(dumpEventMatch) == 1:
-            d.eventLog = dumpEventMatch[0]
-            dumpEventMatch[0].log.dumps.append(d)
+        if len(dumpEventMatch) == 0: #no dump found with this limit, try a bigger limit
+            dumpFile.eventLog = None
+        elif len(dumpEventMatch) == 1: #one dump found, no need to try with a bigger limit
+            dumpFile.eventLog = dumpEventMatch[0]
+            dumpEventMatch[0].log.dumps.append(dumpFile)
             break
-        elif len(dumpEventMatch) > 1:
-            print "WARNING, several log correspondance for file "+d.File
-            d.eventLog = dumpEventMatch[0]
-            dumpEventMatch[0].log.dumps.append(d)
+        elif len(dumpEventMatch) > 1: #several dump found, take the first and no need to try with a bigger limit
+            #take the first, because there is no way to know which is the correct dump event
+            print "WARNING, several log correspondance for file "+dumpFile.File
+            dumpFile.eventLog = dumpEventMatch[0]
+            dumpEventMatch[0].log.dumps.append(dumpFile)
             for de in dumpEventMatch:
                 print "    "+str(de.time)
             break
     
-    if not isinstance(d.eventLog,dumpNewDumpEvent):
-        print "WARNING, no dump log correspondance for file "+d.File
+    #file without dump event matching ?
+    if not isinstance(dumpFile.eventLog,dumpNewDumpEvent):
+        print "WARNING, no dump log correspondance for file "+dumpFile.File
+    
+    ### FIND A VALID ENTRY IN THE NMEA LOG ###
     
     #if position and altitude is defined, find a valid nmea log
-    d.nmeaEvent = None
-    if d.longitude != None and d.latitude != None  and d.fixtime != None:
-        for nl in nmeaLog:
-            for posEvent in nl.NewPosition:
+    
+    if dumpFile.longitude != None and dumpFile.latitude != None  and dumpFile.fixtime != None:
+        for nmeaLog in nmeaLogs:
+            for posEvent in nmeaLog.NewPosition:
                 if posEvent.longitude != None and posEvent.latitude != None  and posEvent.fixtime != None:
-                    if d.longitude == posEvent.longitude and d.latitude == posEvent.latitude and d.fixtime == posEvent.fixtime:
-                        d.nmeaEvent = posEvent
-        if not isinstance(d.nmeaEvent,nmeaNewPositionEvent):
-            print "WARNING, no nmea log correspondance for file "+d.File        
+                    if dumpFile.longitude == posEvent.longitude and dumpFile.latitude == posEvent.latitude and dumpFile.fixtime == posEvent.fixtime:
+                        dumpFile.nmeaEvent = posEvent
+        if not isinstance(dumpFile.nmeaEvent,nmeaNewPositionEvent):
+            print "WARNING, no nmea log correspondance for file "+dumpFile.File        
     else:
-        print "no gps date for file "+d.File
-        whitoutGpsDataFiles.append(d)
+        print "no gps date for file "+dumpFile.File
+        whitoutGpsDataFiles.append(dumpFile)
 
 #update dump event
-for dl in dumpLog: #pour tous les logs
-    print "dumlog file : ",dl.File
+for dumpLog in dumpLogs: #pour tous les logs
+    print "dumlog file : ",dumpLog.File
     #collect diff time
     timeDelta = timedelta()
     timeDeltaCount = 0
     
-    for d in dl.dumps: 
+    for d in dumpLog.dumps: 
 
         if isinstance(d.nmeaEvent,nmeaNewPositionEvent) and isinstance(d.eventLog,dumpNewDumpEvent):
             diff = d.eventLog.time - d.nmeaEvent.time #temps ecoule entre le fix gps et le dump de la carte
@@ -146,14 +160,15 @@ for dl in dumpLog: #pour tous les logs
         
     #print "    delta : ",timeDelta
     
-    for dEvent in dl.dumpEvent:
+    for dEvent in dumpLog.dumpEvent:
         if dEvent.newTime == None:
             dEvent.newTime = dEvent.time + timeDelta
-
-#TODO compute gps position for the file without gps data
-#
-
-"""for d in whitoutGpsDataFiles:
+            
+    #TODO compute gps position for the file without gps data
+        #Position : 0000.0000N 00000.0000E, fix time : 074407 (not yet in the list)
+        #Position : unknown (already in the list)
+    
+    """for d in whitoutGpsDataFiles:
     
     #TODO find the previous and the next nearest position
     #newPositionList
@@ -173,8 +188,18 @@ for dl in dumpLog: #pour tous les logs
             hight = mid
     print low,hight"""
 
+############################################################################################################
+###### DATA SAVE ###########################################################################################
+############################################################################################################
+
+#TODO compute kml files
+    #one files per day
+    #dump event
+
+
+
 #rewrite all the files
-for d in dump:
+for d in dumpFiles:
     d.rewrite("/home/djo/developement/raw/dumper/dump/updated/")
 
 
