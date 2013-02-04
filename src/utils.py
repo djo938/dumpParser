@@ -1,12 +1,14 @@
 #!/usr/bin/python
+from logException import LogParseException
 
 def extractPosition(line):
+    #TODO parse longitude,latitude to signed float
+
     line = line.strip()
     splittedDoublePoint = line.split(":")
     
     if len(splittedDoublePoint) != 3 and len(splittedDoublePoint) != 2:
-        print "(extractPosition) WARNING, invalid nmea Position, double point split : "+str(line)
-        return None,None,None
+        raise LogParseException("(utils.py) extractPosition, invalid nmea Position, double point split",line)
         
     #latitude-longitude
     splittedDoublePoint[1] = splittedDoublePoint[1].strip()
@@ -14,8 +16,7 @@ def extractPosition(line):
     
     if len(splittedDoublePoint) != 2:
         if len(splittedSpace) != 4:
-            print "(extractPosition) WARNING, invalid nmea Position, space split : "+str(line)
-            return None,None,None
+            raise LogParseException("(utils.py) extractPosition, invalid nmea Position, space split (1)",line)
             
         #self.longitude = splittedSpace[0]
         #self.latitude  = splittedSpace[1][:-1]
@@ -23,8 +24,7 @@ def extractPosition(line):
         #fix time
         splittedDoublePoint[2] = splittedDoublePoint[2].strip()
         if len(splittedDoublePoint[2]) != 6:
-            print "(extractPosition) WARNING, invalid nmea Position, fix time length : "+str(line)
-            return None,None,None
+            raise LogParseException("(utils.py) extractPosition, invalid nmea Position, fix time length",line)
             
         #self.fixtime = splittedDoublePoint[2]
         #self.hour    = line[-6:-4]
@@ -33,9 +33,11 @@ def extractPosition(line):
         
         return splittedSpace[0],splittedSpace[1][:-1],splittedDoublePoint[2]
     else:
-        if len(splittedSpace) != 2:
-            print "(extractPosition) WARNING, invalid nmea Position, space split : "+str(line)
+        if splittedDoublePoint[1] == "unknown":
             return None,None,None
+    
+        if len(splittedSpace) != 2:
+            raise LogParseException("(utils.py) extractPosition, invalid nmea Position, space split (2)",line)
             
         #self.longitude = splittedSpace[0]
         #self.latitude  = splittedSpace[1]
@@ -48,8 +50,7 @@ def extractAltitude(line):
     splittedDoublePoint = line.split(":")
     
     if len(splittedDoublePoint) != 3 and len(splittedDoublePoint) != 2:
-        print "(extractAltitude) WARNING, invalid nmea altitude, double point split : "+str(line)
-        return None,None,None
+        raise LogParseException("(utils.py) extractAltitude, invalid nmea altitude, double point split",line)
     
     #altitude
     splittedDoublePoint[1] = splittedDoublePoint[1].strip()
@@ -57,15 +58,13 @@ def extractAltitude(line):
     
     if len(splittedDoublePoint) != 2:
         if len(splittedSpace) != 4:
-            print "(extractAltitude) WARNING, invalid nmea altitude, space split : "+str(line)
-            return None,None,None
+            raise LogParseException("(utils.py) extractAltitude, invalid nmea altitude, space split (1)",line)
     
         altitude = None
         try:
             altitude = float(splittedSpace[0])
         except ValueError as va:
-            print "(extractAltitude) WARNING, invalid nmea altitude, float cast : "+str(line)+" "+str(va)
-            return None,None,None
+            raise LogParseException("(utils.py) extractAltitude, invalid nmea altitude, float cast (1)",line)
         
         #units
         #self.unit = splittedSpace[1][:-1]
@@ -73,23 +72,23 @@ def extractAltitude(line):
         #fix time
         splittedDoublePoint[2] = splittedDoublePoint[2].strip()
         if len(splittedDoublePoint[2]) != 6:
-            print "(extractAltitude) WARNING, invalid nmea altitude, fix time length : "+str(line)
-            return None,None,None
+            raise LogParseException("(utils.py) extractAltitude, invalid nmea altitude, fix time length",line)
             
         #self.fixtime = splittedDoublePoint[2]
         
         return altitude, splittedSpace[1][:-1], splittedDoublePoint[2]
     else:
-        if len(splittedSpace) != 2:
-            print "(extractAltitude) WARNING, invalid nmea altitude, space split : "+str(line)
+        if splittedDoublePoint[1] == "unknown":
             return None,None,None
+    
+        if len(splittedSpace) != 2:
+            raise LogParseException("(utils.py) extractAltitude, invalid nmea altitude, space split (2)",line)
             
         altitude = None
         try:
             altitude = float(splittedSpace[0])
         except ValueError as va:
-            print "(extractAltitude) WARNING, invalid nmea altitude, float cast : "+str(line)+" "+str(va)
-            return None,None,None
+            raise LogParseException("(utils.py) extractAltitude, invalid nmea altitude, float cast (2)",line)
         
         #units
         #self.unit = splittedSpace[1]

@@ -1,6 +1,7 @@
 #!/usr/bin/python
 from utils import *
 from datetime import time
+from logException import LogParseException
 
 class FileDump(object):
     def __init__(self,File):
@@ -13,10 +14,7 @@ class FileDump(object):
         #dump_E016246604C06B7A_6h2s6.txt
         underscoreSplit = File.split("_")
         if len(underscoreSplit) != 3:
-            print "(FileDump) WARNING, invalid file name, undescrore split : "+str(line)
-            self.hour = None 
-            self.minute = None 
-            self.seconds = None
+            raise LogParseException("(FileDump) __init__, invalid file name, undescrore split",line)
         
         self.UID = underscoreSplit[1]
         
@@ -28,13 +26,7 @@ class FileDump(object):
             elif indice == 2: #Heure : 6h2s6
                 splittedDoublePoint = line.split(":")
                 if len(splittedDoublePoint) != 2:
-                    print "(FileDump) WARNING, invalid hour, double point split : "+str(line)
-                    self.hour = None 
-                    self.minute = None 
-                    self.seconds = None
-                    indice += 1
-                    self.lines.append(line)
-                    continue
+                    raise LogParseException("(FileDump) __init__, invalid hour, double point split",line)
                 
                 splittedDoublePoint[1] = splittedDoublePoint[1].strip()
                 #6h2s6
@@ -42,13 +34,7 @@ class FileDump(object):
                 sindex = splittedDoublePoint[1].find("s")
                 
                 if hindex == -1 or sindex == -1:
-                    print "(FileDump) WARNING, invalid hour, double point split : "+str(line)
-                    self.hour = None 
-                    self.minute = None 
-                    self.seconds = None
-                    indice += 1
-                    self.lines.append(line)
-                    continue
+                    raise LogParseException("(FileDump) __init__, invalid hour, char h and s not found",line)
                     
                 self.hour    = splittedDoublePoint[1][:hindex]
                 self.minute  = splittedDoublePoint[1][hindex+1:sindex]
@@ -58,7 +44,7 @@ class FileDump(object):
                 try:
                     self.time = time(int(self.hour),int(self.minute),int(self.seconde))
                 except ValueError as ve:
-                    self.time = None
+                    raise LogParseException("(FileDump) __init__, invalid time, cast error : "+str(ve),line)
                 
             indice += 1
             self.lines.append(line)
@@ -77,7 +63,7 @@ class FileDump(object):
                 f.write("Heure : "+self.eventLog.newTime.strftime("%Hh%Ms%S")+"\n")
                 continue
         
-            #write sector 1c,1d,1e at their correct places
+            #TODO write sector 1c,1d,1e at their correct places
         
             f.write(self.lines[i])
             

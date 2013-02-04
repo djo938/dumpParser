@@ -19,36 +19,54 @@ class LogEvent(object):
         return str(self)
         
     def __lt__(self, other):
+        if other == None:
+            return False
+    
         if self.newTime != None and other.newTime != None:
             return self.newTime < other.newTime
         else:
             return self.time < other.time
             
     def __gt__(self, other):
+        if other == None:
+            return False
+    
         if self.newTime != None and other.newTime != None:
             return self.newTime > other.newTime
         else:
             return self.time > other.time
             
     def __eq__(self, other):
+        if other == None:
+            return False
+    
         if self.newTime != None and other.newTime != None:
             return self.newTime == other.newTime
         else:
             return self.time == other.time
             
     def __le__(self, other):
+        if other == None:
+            return False
+    
         if self.newTime != None and other.newTime != None:
             return self.newTime <= other.newTime
         else:
             return self.time <= other.time
             
     def __ge__(self, other):
+        if other == None:
+            return False
+    
         if self.newTime != None and other.newTime != None:
             return self.newTime >= other.newTime
         else:
             return self.time >= other.time
             
     def __ne__(self, other):
+        if other == None:
+            return False
+    
         if self.newTime != None and other.newTime != None:
             return self.newTime != other.newTime
         else:

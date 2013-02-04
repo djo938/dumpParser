@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 from logEvent import LogEvent
+from logException import LogParseException
 
 #card uid : E0:16:24:66:04:C0:86:2C
 class dumpNewDumpEvent(LogEvent):
@@ -11,8 +12,7 @@ class dumpNewDumpEvent(LogEvent):
         splittedSpace = line.split(" ")
         
         if(len(splittedSpace) != 4):
-            print "WARNING, invalid line to dumpNewDumpEvent : "+line
-            return
+            raise LogParseException("(dumpNewDumpEvent) __init__, invalid line to dumpNewDumpEvent, space split",line)
             
         self.UID = splittedSpace[3]
         self.UID = self.UID.replace(":","")
@@ -22,7 +22,7 @@ class dumpNewDumpEvent(LogEvent):
         LogEvent.__init__(self,time,"dumpNewDumpEvent",line)
         
     def addLine(self,line):
-        print "WARNING, add line not allowed to nmeaSetTimeEvent : "+line
+        raise LogParseException("(dumpNewDumpEvent) addLine, add line not allowed",line)
         
     def __str__(self):
         return "dumpNewDumpEvent at "+str(self.time)+", uid = "+str(self.UID)

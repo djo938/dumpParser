@@ -4,6 +4,7 @@ from logEvent import LogEvent
 from datetime import datetime
 import calendar
 from utils import *
+from logException import LogParseException
 
 #date -s "25 JAN 2013 11:14:11"
 class nmeaSetTimeEvent(LogEvent):
@@ -14,47 +15,40 @@ class nmeaSetTimeEvent(LogEvent):
         splittedSpace = line.split(" ")
         
         if len(splittedSpace) != 6 :
-            print "(nmeaNewPositionEvent) WARNING, invalid nmea datetime, space split : "+str(line)
-            return
+            raise LogParseException("(nmeaNewPositionEvent) __init__, invalid nmea datetime, space split",line)
             
         try:
             self.day =  int(splittedSpace[2][1:])
         except ValueError as va:
-            print "(nmeaNewAltitudeEvent) WARNING, invalid nmea day, int cast : "+str(line)+" "+str(va)
-            return
+            raise LogParseException("(nmeaNewPositionEvent) __init__, invalid nmea day, int cast, "+str(va),line)
         
         self.month = 01 #TODO splittedSpace[3]
         
         try:
             self.year =  int(splittedSpace[4])
         except ValueError as va:
-            print "(nmeaNewAltitudeEvent) WARNING, invalid nmea year, int cast : "+str(line)+" "+str(va)
-            return
+            raise LogParseException("(nmeaNewPositionEvent) __init__, invalid nmea year, int cast, "+str(va),line)
         
         splittedSpace[5] = splittedSpace[5].strip()
         splittedDoublePoint = splittedSpace[5].split(":")
         
         if len(splittedDoublePoint) != 3 :
-            print "(nmeaNewPositionEvent) WARNING, invalid nmea time, double point split : "+str(line)
-            return
+            raise LogParseException("(nmeaNewPositionEvent) __init__, invalid nmea time, double point split",line)
         
         try:
             self.hour = int(splittedDoublePoint[0])
         except ValueError as va:
-            print "(nmeaNewAltitudeEvent) WARNING, invalid nmea hour, int cast : "+str(line)+" "+str(va)
-            return
+            raise LogParseException("(nmeaNewPositionEvent) __init__, invalid nmea hou, int cast, "+str(va),line)
 
         try:
             self.minute =  int(splittedDoublePoint[1])
         except ValueError as va:
-            print "(nmeaNewAltitudeEvent) WARNING, invalid nmea minute, int cast : "+str(line)+" "+str(va)
-            return
+            raise LogParseException("(nmeaNewPositionEvent) __init__, invalid nmea minute, int cast, "+str(va),line)
 
         try:
             self.second =  int(splittedDoublePoint[2][:-1])
         except ValueError as va:
-            print "(nmeaNewAltitudeEvent) WARNING, invalid nmea second, int cast : "+str(line)+" "+str(va)
-            return
+            raise LogParseException("(nmeaNewPositionEvent) __init__, invalid nmea second, int cast, "+str(va),line)
         
         #self.timestamp = calendar.timegm(datetime(self.year,self.month,  self.day ,self.hour,self.minute,   self.second ).utctimetuple()) 
         self.timestamp = datetime(self.year,self.month,  self.day ,self.hour,self.minute,   self.second )
@@ -62,7 +56,7 @@ class nmeaSetTimeEvent(LogEvent):
         LogEvent.__init__(self,time,"nmeaNewPositionEvent",line)
         
     def addLine(self,line):
-        print "WARNING, add line not allowed to nmeaSetTimeEvent : "+line
+        raise LogParseException("(nmeaNewPositionEvent) addLine, add line not allowed",line)
         
     def __str__(self):
         return "(nmeaSetTimeEvent) at "+str(self.time)+" : "+str(self.day)+"/"+str(self.month)+"/"+str(self.year)+" "+str(self.hour)+":"+str(self.minute)+":"+str(self.second)
@@ -81,7 +75,7 @@ class nmeaNewPositionEvent(LogEvent):
         LogEvent.__init__(self,time,"nmeaNewPositionEvent",line)
         
     def addLine(self,line):
-        print "WARNING, add line not allowed to nmeaSetTimeEvent : "+line
+        raise LogParseException("(nmeaNewPositionEvent) addLine, add line not allowed",line)
         
     def __str__(self):
         return "(nmeaNewPositionEvent) at "+str(self.time)+", longitude = "+str(self.longitude)+", latitude = "+str(self.latitude)
@@ -101,7 +95,7 @@ class nmeaNewAltitudeEvent(LogEvent):
         LogEvent.__init__(self,time,"nmeaNewAltitudeEvent",line)
         
     def addLine(self,line):
-        print "(nmeaNewAltitudeEvent) WARNING, add line not allowed to nmeaSetTimeEvent : "+line
+        raise LogParseException("(nmeaNewAltitudeEvent) addLine, add line not allowed",line)
         
     def __str__(self):
         return "(nmeaNewAltitudeEvent) at "+str(self.time)+", altitude = "+str(self.altitude)+" "+str(self.unit)

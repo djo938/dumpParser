@@ -5,6 +5,7 @@ import calendar
 from logEvent import LogEvent
 from nmeaEvent import *
 from dumpEvent import *
+from logException import LogParseException
 
 #2013-01-18 20:09:23,044
 def isFirstLine(line):
@@ -16,37 +17,40 @@ def parseFile(File,Class,NewLogTest):
     objs = []
     obj = None
     for line in f:
-        #is new log?
-        if NewLogTest in line:
-            obj = Class(File)
-            objs.append(obj)
-            continue
-        else:
-            if obj == None:
-                print "WARNING, the first line of the file "+str(File)+" doesn't contain "+str(NewLogTest)
+        try:
+            #is new log?
+            if NewLogTest in line:
+                obj = Class(File)
+                objs.append(obj)
                 continue
-    
-        #is a first line ?
-        if isFirstLine(line):
-            timestamp = 0
-            try:
-                #timestamp = calendar.timegm(.utctimetuple()) 
-                
-                #timestamp += float("0."+line[20:23])
-                timestamp = datetime(  int(line[0:4])  ,int(line[5:7]) ,  int(line[8:10]), int(line[11:13]) ,  int(line[14:16]) ,   int(line[17:19]), int(line[20:23])*1000 )
-            except ValueError as ve:
-                print "warning, failed to convert timestamp at line : "+line
-                continue
-            ev = obj.newEvent(line[23:].strip(),timestamp)
-            #print ev
-            obj.eventList.append(ev)
-            ev.log = obj
-        else:
-            if len(obj.eventList) == 0:
-                print "warning, not a first line and no event in the list : {"+line+"}"
-                continue
-        
-            obj.eventList[-1].addLine(line)
+            else:
+                if obj == None:
+                    print "    WARNING, the first line of the file "+str(File)+" doesn't contain "+str(NewLogTest)
+                    continue
+
+            #is a first line ?
+            if isFirstLine(line):
+                timestamp = 0
+                try:
+                    #timestamp = calendar.timegm(.utctimetuple()) 
+                    
+                    #timestamp += float("0."+line[20:23])
+                    timestamp = datetime(  int(line[0:4])  ,int(line[5:7]) ,  int(line[8:10]), int(line[11:13]) ,  int(line[14:16]) ,   int(line[17:19]), int(line[20:23])*1000 )
+                except ValueError as ve:
+                    print "    WARNING, failed to convert timestamp at line : "+line
+                    continue
+                ev = obj.newEvent(line[23:].strip(),timestamp)
+                #print ev
+                obj.eventList.append(ev)
+                ev.log = obj
+            else:
+                if len(obj.eventList) == 0:
+                    print "    WARNING, not a first line and no event in the list : {"+line+"}"
+                    continue
+            
+                obj.eventList[-1].addLine(line)
+        except LogParseException as lpe:
+            print "    "+str(lpe)
             
     return objs
 
@@ -59,8 +63,16 @@ class Logstruct(object):
         pass
     
 class NmeaLog(Logstruct):
+    fileCounter = {}
 
     def __init__(self,File):
+        if File not in NmeaLog.fileCounter:
+            NmeaLog.fileCounter[File] = 1
+            self.fileIndice = 0
+        else:
+            self.fileIndice = NmeaLog.fileCounter[File]
+            NmeaLog.fileCounter[File] += 1
+    
         self.dateEvent = None
         
         self.NewPosition = []
@@ -91,7 +103,7 @@ class NmeaLog(Logstruct):
             ev = nmeaSetTimeEvent(time,line)
             
             if self.dateEvent != None:
-                print "WARNING, two new date in file "+self.File
+                raise LogParseException("(NmeaLog) newEvent, two new date in file "+self.File)
                 
             self.dateEvent = ev
             
@@ -102,7 +114,7 @@ class NmeaLog(Logstruct):
         
     def updateAllEventTime(self):
         if not isinstance(self.dateEvent,nmeaSetTimeEvent):
-            print "WARNING, no date event in file : "+str(self.File)
+            print "    ERROR, no date event in file : "+str(self.File)+", index : "+str(self.fileIndice)
             return
         
         diff = self.dateEvent.timestamp - self.dateEvent.time
