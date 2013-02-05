@@ -59,8 +59,11 @@ class nmeaSetTimeEvent(LogEvent):
         raise LogParseException("(nmeaNewPositionEvent) addLine, add line not allowed",line)
         
     def __str__(self):
-        return "(nmeaSetTimeEvent) at "+str(self.time)+" : "+str(self.day)+"/"+str(self.month)+"/"+str(self.year)+" "+str(self.hour)+":"+str(self.minute)+":"+str(self.second)
-        
+        if self.newTime == None:
+            return "(nmeaSetTimeEvent) at "+str(self.time)+" : "+str(self.day)+"/"+str(self.month)+"/"+str(self.year)+" "+str(self.hour)+":"+str(self.minute)+":"+str(self.second)
+        else:
+            return "(nmeaSetTimeEvent) at "+str(self.newTime)+" : "+str(self.day)+"/"+str(self.month)+"/"+str(self.year)+" "+str(self.hour)+":"+str(self.minute)+":"+str(self.second)
+            
 #position (not new) : 4516.2482N 00635.5607E, fix time : 101417
 #position : 4516.2482N 00635.5607E, fix time : 101417
 #position : 0000.0000N 00000.0000E
@@ -78,8 +81,10 @@ class nmeaNewPositionEvent(LogEvent):
         raise LogParseException("(nmeaNewPositionEvent) addLine, add line not allowed",line)
         
     def __str__(self):
-        return "(nmeaNewPositionEvent) at "+str(self.time)+", longitude = "+str(self.longitude)+", latitude = "+str(self.latitude)
-
+        if self.newTime == None:
+            return "(nmeaNewPositionEvent) at "+str(self.time)+", longitude = "+str(self.longitude)+", latitude = "+str(self.latitude)
+        else:
+            return "(nmeaNewPositionEvent) at "+str(self.newTime)+", longitude = "+str(self.longitude)+", latitude = "+str(self.latitude)
 
 #altitude (not new) : 2873.60009765625 M, fix time : 101418
 #altitude : 2873.60009765625 M, fix time : 101418
@@ -98,6 +103,11 @@ class nmeaNewAltitudeEvent(LogEvent):
         raise LogParseException("(nmeaNewAltitudeEvent) addLine, add line not allowed",line)
         
     def __str__(self):
-        return "(nmeaNewAltitudeEvent) at "+str(self.time)+", altitude = "+str(self.altitude)+" "+str(self.unit)
-        
+        if self.newTime == None:
+            return "(nmeaNewAltitudeEvent) at "+str(self.time)+", altitude = "+str(self.altitude)+" "+str(self.unit)
+        else:
+            return "(nmeaNewAltitudeEvent) at "+str(self.newTime)+", altitude = "+str(self.altitude)+" "+str(self.unit)
+            
+            
+            
         

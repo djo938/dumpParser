@@ -22,7 +22,7 @@ class FileDump(object):
             if indice == 0: #position
                 self.longitude,self.latitude,self.fixtime = extractPosition(line)
             elif indice == 1: #altitude
-                self.altitude,self.unit,self.fixtime = extractAltitude(line)
+                self.altitude,self.unit,self.altFixtime = extractAltitude(line)
             elif indice == 2: #Heure : 6h2s6
                 splittedDoublePoint = line.split(":")
                 if len(splittedDoublePoint) != 2:

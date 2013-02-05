@@ -25,4 +25,7 @@ class dumpNewDumpEvent(LogEvent):
         raise LogParseException("(dumpNewDumpEvent) addLine, add line not allowed",line)
         
     def __str__(self):
-        return "dumpNewDumpEvent at "+str(self.time)+", uid = "+str(self.UID)
+        if self.newTime == None:
+            return "dumpNewDumpEvent at "+str(self.time)+", uid = "+str(self.UID)
+        else:
+            return "dumpNewDumpEvent at "+str(self.newTime)+", uid = "+str(self.UID)

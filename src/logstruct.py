@@ -81,8 +81,15 @@ class NmeaLog(Logstruct):
         self.NewAltitude = []
         self.Altitude = []
         
+        self.dumpLog = None
+        
         Logstruct.__init__(self,File)
         
+    def __str__(self):
+        return self.File+" ("+str(self.fileIndice)+")"
+        
+    def __repr__(self):
+        return str(self)
 
     def newEvent(self,line, time):
         if line.startswith("altitude :"):
@@ -114,23 +121,38 @@ class NmeaLog(Logstruct):
         
     def updateAllEventTime(self):
         if not isinstance(self.dateEvent,nmeaSetTimeEvent):
-            print "    ERROR, no date event in file : "+str(self.File)+", index : "+str(self.fileIndice)
-            return
+            #print "    ERROR, no date event in file : "+str(self.File)+", index : "+str(self.fileIndice)
+            return False
         
         diff = self.dateEvent.timestamp - self.dateEvent.time
         #print "diff = ",diff
+        self.dateEvent.newTime = self.dateEvent.time + diff
         
         for np in self.NewPosition:
             np.newTime = np.time + diff
+        
+        #print "    updated "+str(self.File)+", index : "+str(self.fileIndice)
+        return True
 
 def parseNmeaFile(File):
     return parseFile(File,NmeaLog,"nmead start")
         
 class DumpLog(Logstruct):
+    fileCounter = {}
+
     def __init__(self,File):
+        if File not in DumpLog.fileCounter:
+            DumpLog.fileCounter[File] = 1
+            self.fileIndice = 0
+        else:
+            self.fileIndice = DumpLog.fileCounter[File]
+            DumpLog.fileCounter[File] += 1
+        
     
         self.dumpEvent = []
         self.dumps = []
+    
+        self.nmeaLog = None
     
         Logstruct.__init__(self,File)
 
@@ -142,6 +164,9 @@ class DumpLog(Logstruct):
             ev = LogEvent(time,"unknown event",line)
         
         return ev
+        
+    def __str__(self):
+        return self.File+" ("+str(self.fileIndice)+")"
         
 def parseDumpLogFile(File):
     return parseFile(File,DumpLog,"server start")

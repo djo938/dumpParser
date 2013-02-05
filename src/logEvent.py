@@ -64,8 +64,8 @@ class LogEvent(object):
             return self.time >= other.time
             
     def __ne__(self, other):
-        if other == None:
-            return False
+        if other == None: #not equal to None
+            return True
     
         if self.newTime != None and other.newTime != None:
             return self.newTime != other.newTime
