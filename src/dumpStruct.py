@@ -56,6 +56,8 @@ class FileDump(object):
         return "(FileDump) at "+str(self.hour)+":"+str(self.minute)+":"+str(self.seconde)+" long="+str(self.longitude)+" lat="+str(self.latitude)+" fix="+str(self.fixtime)+", alt="+str(self.altitude)+str(self.unit)+" fix="+str(self.fixtime)
         
     def rewrite(self,directory="./"):
+    
+        #TODO UID dans le nom de fichier
         f = open(directory+"dump_"+self.eventLog.newTime.strftime("%d_%A_%B_%Y_%Hh%Ms%S")+".txt", 'w')
 
         for i in range(0,len(self.lines)):
@@ -63,7 +65,11 @@ class FileDump(object):
                 f.write("Heure : "+self.eventLog.newTime.strftime("%Hh%Ms%S")+"\n")
                 continue
         
+            #TODO remplacer la ligne contenant l'uid par une ligne avec l'UID venant du nom de fichier
+        
             #TODO write sector 1c,1d,1e at their correct places
+            
+            #TODO remplacer la ligne des coordonnees gps par les coordonnees calculees en degree
         
             f.write(self.lines[i])
             

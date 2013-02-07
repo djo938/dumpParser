@@ -7,6 +7,7 @@ from datetime import timedelta
 from dumpEvent import dumpNewDumpEvent
 from nmeaEvent import nmeaNewPositionEvent
 from logException import LogParseException
+from gpsUtils import *
 
 #nmeaLogDirectory = "/Volumes/Home/Downloads/root/nmea/log/"
 nmeaLogDirectory = "/home/djo/developement/raw/nmea/log/"
@@ -152,10 +153,10 @@ for dumpFile in dumpFiles:
                             #WARNING, no colision management here
                             print "    WARNING, several position event to the dumpile : "+dumpFile.File
                     
-                    #append the position 00000 in the whitoutGpsDataFiles
-                        #Position : 0000.0000N 00000.0000E, fix time : 074407
-                    if dumpFile.longitude == 0.0 and dumpFile.latitude == 0.0:
-                        whitoutGpsFixFiles.append(dumpFile)
+        #append the position 00000 in the whitoutGpsDataFiles
+            #Position : 0000.0000N 00000.0000E, fix time : 074407
+        if dumpFile.longitude == 0.0 and dumpFile.latitude == 0.0:
+            whitoutGpsFixFiles.append(dumpFile)
                     
                     
                         
@@ -165,6 +166,8 @@ for dumpFile in dumpFiles:
         print "    no gps data for file "+dumpFile.File
         print "        "+str(dumpFile.eventLog.log)
         whitoutGpsDataFiles.append(dumpFile)
+print "    file whitout gps fix : "+str(len(whitoutGpsFixFiles))
+print "    file whitout gps data : "+str(len(whitoutGpsDataFiles))
 print "    Done !"
 print ""
 
@@ -240,9 +243,11 @@ for dumpLog in dumpLogs: #pour tous les logs
             dEvent.newTime = dEvent.time + timeDelta
             
     #TODO compute gps position for the file without gps data
-        #Position : 0000.0000N 00000.0000E, fix time : 074407  in list whitoutGpsFixFiles
-        #Position : unknown  in list whitoutGpsDataFiles
+        #Position : 0000.0000N 00000.0000E, fix time : 074407  in list whitoutGpsFixFiles (16 items)
+        #Position : unknown  in list whitoutGpsDataFiles (6 items)
             #for this kind of files, check if the dumpLog is linked to a nmeaLog, otherwise it will be impossible to find a position range
+            
+        #not realy a priority thing...
     
     """for d in whitoutGpsDataFiles:
     
@@ -264,17 +269,51 @@ for dumpLog in dumpLogs: #pour tous les logs
             hight = mid
     print low,hight"""
 print "    Done !"
+print "linked gps data to cable car"
+#find the cablecar attached to each dump file
+gondolaMatch = 0
+gondolaNotMatch = 0
 
-#TODO find the cablecar attached to each dump file
+pausePoint = [gpsPoint(45.324157,6.53898),gpsPoint(45.377333,6.504793),gpsPoint(45.380217,6.504257),gpsPoint(45.382075,6.5027),gpsPoint(45.381098,6.503282)]
 
+for dumpFile in dumpFiles:
+    if dumpFile.latitude != None and dumpFile.latitude != 0.0 and dumpFile.longitude != None and dumpFile.longitude != 0.0:
+        gondola = findThenearestLine(  dumpFile.latitude,  dumpFile.longitude  )
+        
+        #check if the position is not a pause area (lunchtime, etc.)
+        pause = False
+        for ppoint in pausePoint:
+            if getDistance(dumpFile.latitude,  dumpFile.longitude,ppoint.latitude,  ppoint.longitude) < 0.010:
+                pause = True
+                
+        if pause:
+            continue
+
+        if gondola[0] > 0.020:
+            print "    Warning, long distance match : lat="+str(dumpFile.latitude)+", lon="+str(dumpFile.longitude)+str(  gondola   )
+            gondolaNotMatch +=1
+        else:
+            #afficher quand la distance est prise du sommet, c'est peu etre anormal
+            if gondola[0] == 2:
+                print "    Warning, match at the endStation : lat="+str(dumpFile.latitude)+", lon="+str(dumpFile.longitude)+str(  gondola   )
+            gondolaMatch +=1
+
+print "    gondolaPerfectMatch="+str(gondolaMatch)
+print "    gondolaAbnormalMatch="+str(gondolaNotMatch)
+print "    Done !"
 
 ############################################################################################################
 ###### DATA SAVE ###########################################################################################
 ############################################################################################################
 
-#TODO compute kml files
-    #mettre une couleur par UID
-    #mettre les lignes en rouge a partir de 13h
+UIDtoColor = {"E016246604C06B7A" : "http://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png", 
+              "E016246604C06BA0" : "http://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png", 
+              "E016246604C070DE" : "http://maps.gstatic.com/mapfiles/ms2/micons/yellow-dot.png", 
+              "E016246604C0862C" : "http://maps.gstatic.com/mapfiles/ms2/micons/green-dot.png", 
+              "E016246604C0938B" : "http://maps.gstatic.com/mapfiles/ms2/micons/pink-dot.png", 
+              "E016246604C05492" : "http://maps.gstatic.com/mapfiles/ms2/micons/ltblue-dot.png", 
+              "E016246604C09352" : "http://maps.gstatic.com/mapfiles/ms2/micons/orange-dot.png", 
+              "E0162466025BF373" : "http://maps.gstatic.com/mapfiles/ms2/micons/purple-dot.png"}
 
 def sortNneaList(x,y):
     return int( (x.dateEvent.newTime - y.dateEvent.newTime).total_seconds() ) #warning, this method don care about milli and microseconds
@@ -306,12 +345,30 @@ for nmeaLog in nmeaLogs:
         tab.append( ( position.longitude,position.latitude) )
         
         if len(tab) == KML_LINE_POINT_LIMIT:
-            kml.newlinestring(name=str(firstPos.newTime), description="", coords=tab)
+            line = kml.newlinestring(name=str(firstPos.newTime), description="", coords=tab)
             tab = []
-            firstPos = None
             
+            
+            if firstPos.newTime.hour < 12 or (firstPos.newTime.hour == 12 and firstPos.newTime.minute < 30):
+                #blue line
+                line.style.linestyle.color = 'ffff0000'
+                
+            else:
+                #red line
+                line.style.linestyle.color = 'ff0000ff'
+                
+            firstPos = None
+                
     if len(tab) > 0:
-        kml.newlinestring(name=str(firstPos.newTime), description="", coords=tab)
+        line = kml.newlinestring(name=str(firstPos.newTime), description="", coords=tab)
+        
+        if firstPos.newTime.hour < 12 or (firstPos.newTime.hour == 12 and firstPos.newTime.minute < 30):
+            #blue line
+            line.style.linestyle.color = 'ffff0000'
+            
+        else:
+            #red line
+            line.style.linestyle.color = 'ff0000ff'
     
     if nmeaLog.dumpLog != None :
         for dump in nmeaLog.dumpLog.dumps:
@@ -319,7 +376,13 @@ for nmeaLog in nmeaLogs:
                 continue
         
             dumpTime = str(dump.eventLog.newTime.hour)+":"+str(dump.eventLog.newTime.minute)+":"+str(dump.eventLog.newTime.second)
-            kml.newpoint(name="dump_"+str(dump.UID)+"_"+dumpTime, description="",coords=[(dump.nmeaEvent.longitude,dump.nmeaEvent.latitude)])
+            point = kml.newpoint(name="dump_"+str(dump.UID)+"_"+dumpTime, description="",coords=[(dump.nmeaEvent.longitude,dump.nmeaEvent.latitude)])
+            
+            if dump.UID in UIDtoColor:
+                 point.style.iconstyle.icon.href = UIDtoColor[dump.UID]
+            else:
+                print "warning unknown UID : "+str(dump.UID)
+
     else:
         print "warning, no dumpLog linked to "+str(nmeaLog)
 
