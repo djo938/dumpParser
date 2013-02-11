@@ -18,6 +18,7 @@ dumpLogDirectory = "/home/djo/developement/raw/dumper/log/"
 #dumpDirectory    = "/Volumes/Home/Downloads/root/dumper/dump/"
 dumpDirectory    = "/home/djo/developement/raw/dumper/dump/"
 
+#kmlDirectory = "/Volumes/Home/Downloads/root/nmea/kml/"
 kmlDirectory = "/home/djo/developement/raw/nmea/kml/"
 
 KML_LINE_POINT_LIMIT = 200
@@ -25,7 +26,8 @@ KML_LINE_POINT_LIMIT = 200
 ############################################################################################################
 ###### DATA PARSING ########################################################################################
 ############################################################################################################
-#load nmea logs
+
+##### load nmea logs #######################################################################################
 print "parsing nmea log..."
 nmeaLogs = [] #store all the nmea log object
 newPositionList = [] #store all the nmea New Position object from all the nmea logs
@@ -42,8 +44,8 @@ print "    log count : "+str(len(nmeaLogs))
 print "    Done !"
 print ""
 print "update nmea log time"
-#update all the New position
 
+##### update all the New position ##########################################################################
 toRemove = []
 for nmeaLog in nmeaLogs:
     if not nmeaLog.updateAllEventTime():
@@ -57,7 +59,8 @@ print "    Done !"
 print ""
 print "parsing dump log..."
 dumpLogs = []
-#load dump logs
+
+##### load dump logs ######################################################################################
 for fileName in os.listdir(dumpLogDirectory):
     if os.path.isfile(dumpLogDirectory+fileName) and fileName.endswith(".log"):
         dumpLogs.extend(parseDumpLogFile(dumpLogDirectory+fileName))
@@ -74,13 +77,19 @@ print "    log count : "+str(len(dumpLogs))
 print "    Total dump : "+str(count)
 print "    Done !"
 print ""
+
+##### load dump files ######################################################################################
+
 print "parsing dump..."
-#load dump files 
+
 dumpFiles = []
 for fileName in os.listdir(dumpDirectory):
     if os.path.isfile(dumpDirectory+fileName) and fileName.endswith(".txt"):
         try:
-            dumpFiles.append(FileDump(dumpDirectory+fileName))
+            dumpFile = FileDump(dumpDirectory+fileName)
+            dumpFile.dumpEvent = None
+            dumpFile.nmeaEvent = None
+            dumpFiles.append(dumpFile)
         except LogParseException as lpe:
             print "    "+str(lpe)+" at file "+dumpDirectory+fileName
     else:
@@ -99,7 +108,7 @@ whitoutGpsFixFiles  = [] #position : 0000.0000
 print "correlate data..."
 for dumpFile in dumpFiles:
     
-    ### FIND A VALID ENTRY IN THE DUMP LOG ###
+##### FIND A VALID ENTRY IN THE DUMP LOG ###################################################################
     
     for limite in range(1,3): #try perfect match, then 1 second math, and then 2 second match
         dumpEventMatch = [] #check the colision
@@ -120,25 +129,26 @@ for dumpFile in dumpFiles:
                            
         #check dumpEventMatch, if ==0, if > 1, if ==1
         if len(dumpEventMatch) == 0: #no dump found with this limit, try a bigger limit
-            dumpFile.eventLog = None
+            continue
         elif len(dumpEventMatch) == 1: #one dump found, no need to try with a bigger limit
-            dumpFile.eventLog = dumpEventMatch[0]
+            dumpFile.dumpEvent = dumpEventMatch[0]
             dumpEventMatch[0].log.dumps.append(dumpFile)
             break
         elif len(dumpEventMatch) > 1: #several dump found, take the first and no need to try with a bigger limit
             #take the first, because there is no way to know which is the correct dump event
             print "    WARNING, several log correspondance for file "+dumpFile.File
-            dumpFile.eventLog = dumpEventMatch[0]
+            dumpFile.dumpEvent = dumpEventMatch[0]
             dumpEventMatch[0].log.dumps.append(dumpFile)
             for de in dumpEventMatch:
                 print "        "+str(de.time)
             break
     
     #file without dump event matching ?
-    if not isinstance(dumpFile.eventLog,dumpNewDumpEvent):   
+    #if not isinstance(dumpFile.eventLog,dumpNewDumpEvent):   
+    if dumpFile.dumpEvent == None:
         print "    WARNING, no dump log correspondance for file "+dumpFile.File
     
-    ### FIND A VALID ENTRY IN THE NMEA LOG ###
+##### FIND A VALID ENTRY IN THE NMEA LOG ###################################################################
     
     #if position and altitude is defined, find a valid nmea log    
     if dumpFile.longitude != None and dumpFile.latitude != None  and dumpFile.fixtime != None:
@@ -147,7 +157,9 @@ for dumpFile in dumpFiles:
                 if posEvent.longitude != None and posEvent.latitude != None  and posEvent.fixtime != None:
                     #print dumpFile.longitude ," vs ", posEvent.longitude ," AND ", dumpFile.latitude ," vs ", posEvent.latitude ," AND ", dumpFile.fixtime ," vs ", posEvent.fixtime
                     if dumpFile.longitude == posEvent.longitude and dumpFile.latitude == posEvent.latitude and dumpFile.fixtime == posEvent.fixtime:
+                        #if dumpFile.nmeaEvent == None:#check colision
                         if dumpFile.nmeaEvent == None:#check colision
+                            #dumpFile.nmeaEvent = posEvent
                             dumpFile.nmeaEvent = posEvent
                         else:
                             #WARNING, no colision management here
@@ -160,17 +172,21 @@ for dumpFile in dumpFiles:
                     
                     
                         
-        if not isinstance(dumpFile.nmeaEvent,nmeaNewPositionEvent):
+        if dumpFile.nmeaEvent == None:
             print "    WARNING, no nmea log correspondance for file "+dumpFile.File
     else:
         print "    no gps data for file "+dumpFile.File
-        print "        "+str(dumpFile.eventLog.log)
+        if dumpFile.dumpEvent != None:
+            print "        "+str(dumpFile.dumpEvent.log)
+        else:
+            print "        no dump log information"
         whitoutGpsDataFiles.append(dumpFile)
 print "    file whitout gps fix : "+str(len(whitoutGpsFixFiles))
 print "    file whitout gps data : "+str(len(whitoutGpsDataFiles))
 print "    Done !"
 print ""
 
+##### check log links integrity ###################################################################
 print "check linking integrity"
 #check if all the dumps of a dump log are linked to the same nmea log
     #check also if a nmea log is linked to only one dump log
@@ -178,13 +194,13 @@ print "check linking integrity"
 #build a dictionnary with all the nmea log linked to each dump log, in normal case, it should be one nmea
 dumpLogDict = {}
 for dumpFile in dumpFiles:
-    if dumpFile.eventLog == None or dumpFile.nmeaEvent == None:
+    if dumpFile.dumpEvent == None or dumpFile.nmeaEvent == None:
         continue
         
-    if dumpFile.eventLog not in dumpLogDict:
-        dumpLogDict[dumpFile.eventLog.log] = [dumpFile.nmeaEvent.log]
+    if dumpFile.dumpEvent not in dumpLogDict:
+        dumpLogDict[dumpFile.dumpEvent.log] = [dumpFile.nmeaEvent.log]
     else:
-        dumpLogDict[dumpFile.eventLog.log].append(dumpFile.nmeaEvent.log)
+        dumpLogDict[dumpFile.dumpEvent.log].append(dumpFile.nmeaEvent.log)
 
 nmeaLogDict = {}
 for dumpLog,nmeaLogList in dumpLogDict.iteritems():
@@ -204,12 +220,14 @@ for dumpLog,nmeaLogList in dumpLogDict.iteritems():
         if nmeaLog not in nmeaLogDict:
             nmeaLogDict[nmeaLog] = True
         else:
-            print "    WARNING, a nmealog is linked to several nmealog : "+str(item)
+            print "    WARNING, a nmealog is linked to several dumplog : "+str(nmeaLog)
             #warning, no threatment
        
     
 print "    Done !"
 print ""
+
+##### update dump datetime ###################################################################
 print "update dump files"
 #update dump event
 for dumpLog in dumpLogs: #pour tous les logs
@@ -218,22 +236,26 @@ for dumpLog in dumpLogs: #pour tous les logs
     timeDelta = timedelta()
     timeDeltaCount = 0
     
-    for dump in dumpLog.dumps: 
+    for dumpFile in dumpLog.dumps: 
 
-        if isinstance(dump.nmeaEvent,nmeaNewPositionEvent) and isinstance(dump.eventLog,dumpNewDumpEvent):
-            diff = dump.eventLog.time - dump.nmeaEvent.time #temps ecoule entre le fix gps et le dump de la carte, on se base sur les mauvais temps
+        #if isinstance(dump.nmeaEvent,nmeaNewPositionEvent) and isinstance(dump.eventLog,dumpNewDumpEvent):
+        if dumpFile.nmeaEvent != None and dumpFile.dumpEvent != None:
+        
+            diff = dumpFile.dumpEvent.time - dumpFile.nmeaEvent.time #temps ecoule entre le fix gps et le dump de la carte, on se base sur les mauvais temps
             #print "    diff : ",diff #varie entre 0 et 10 secondes si le gps est synchro
             
-            dump.eventLog.newTime = dump.nmeaEvent.newTime + diff #on mets a jour le bon temps sur l'eventLog
-            
+            dumpFile.dumpEvent.newTime = dumpFile.nmeaEvent.newTime + diff #on mets a jour le bon temps sur l'eventLog
+            dumpFile.datetime = dumpFile.dumpEvent.newTime
             #calcule de la moyenne de diffrence entre le bon temps et le mauvais temps des eventlogs
-            diff2 = dump.eventLog.newTime - dump.eventLog.time 
+            diff2 = dumpFile.dumpEvent.newTime - dumpFile.dumpEvent.time 
             #print "    diff2 : ",diff2
             timeDelta += diff2
             timeDeltaCount += 1
             
     if timeDeltaCount > 0:
         timeDelta /= timeDeltaCount
+        
+    
         
     #print "    delta : ",timeDelta
     
@@ -242,12 +264,12 @@ for dumpLog in dumpLogs: #pour tous les logs
         if dEvent.newTime == None:
             dEvent.newTime = dEvent.time + timeDelta
             
-    #TODO compute gps position for the file without gps data
-        #Position : 0000.0000N 00000.0000E, fix time : 074407  in list whitoutGpsFixFiles (16 items)
-        #Position : unknown  in list whitoutGpsDataFiles (6 items)
-            #for this kind of files, check if the dumpLog is linked to a nmeaLog, otherwise it will be impossible to find a position range
-            
-        #not realy a priority thing...
+#TODO compute gps position for the file without gps data
+    #Position : 0000.0000N 00000.0000E, fix time : 074407  in list whitoutGpsFixFiles (16 items)
+    #Position : unknown  in list whitoutGpsDataFiles (6 items)
+        #for this kind of files, check if the dumpLog is linked to a nmeaLog, otherwise it will be impossible to find a position range
+        
+    #not realy a priority thing...
     
     """for d in whitoutGpsDataFiles:
     
@@ -289,6 +311,8 @@ for dumpFile in dumpFiles:
         if pause:
             continue
 
+        dumpFile.cablecarInformation = gondola
+
         if gondola[0] > 0.020:
             print "    Warning, long distance match : lat="+str(dumpFile.latitude)+", lon="+str(dumpFile.longitude)+str(  gondola   )
             gondolaNotMatch +=1
@@ -306,6 +330,7 @@ print "    Done !"
 ###### DATA SAVE ###########################################################################################
 ############################################################################################################
 
+#BUILD KML FILES
 UIDtoColor = {"E016246604C06B7A" : "http://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png", 
               "E016246604C06BA0" : "http://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png", 
               "E016246604C070DE" : "http://maps.gstatic.com/mapfiles/ms2/micons/yellow-dot.png", 
@@ -371,17 +396,17 @@ for nmeaLog in nmeaLogs:
             line.style.linestyle.color = 'ff0000ff'
     
     if nmeaLog.dumpLog != None :
-        for dump in nmeaLog.dumpLog.dumps:
-            if dump.nmeaEvent.longitude == 0.0 and dump.nmeaEvent.latitude == 0.0:
+        for dumpFile in nmeaLog.dumpLog.dumps:
+            if dumpFile.nmeaEvent.longitude == 0.0 and dumpFile.nmeaEvent.latitude == 0.0:
                 continue
         
-            dumpTime = str(dump.eventLog.newTime.hour)+":"+str(dump.eventLog.newTime.minute)+":"+str(dump.eventLog.newTime.second)
-            point = kml.newpoint(name="dump_"+str(dump.UID)+"_"+dumpTime, description="",coords=[(dump.nmeaEvent.longitude,dump.nmeaEvent.latitude)])
+            dumpTime = str(dumpFile.dumpEvent.newTime.hour)+":"+str(dumpFile.dumpEvent.newTime.minute)+":"+str(dumpFile.dumpEvent.newTime.second)
+            point = kml.newpoint(name="dump_"+str(dumpFile.UID)+"_"+dumpTime, description="",coords=[(dumpFile.longitude,dumpFile.latitude)])
             
-            if dump.UID in UIDtoColor:
-                 point.style.iconstyle.icon.href = UIDtoColor[dump.UID]
+            if dumpFile.UID in UIDtoColor:
+                 point.style.iconstyle.icon.href = UIDtoColor[dumpFile.UID]
             else:
-                print "warning unknown UID : "+str(dump.UID)
+                print "warning unknown UID : "+str(dumpFile.UID)
 
     else:
         print "warning, no dumpLog linked to "+str(nmeaLog)
@@ -389,12 +414,41 @@ for nmeaLog in nmeaLogs:
 
 kml.save(kmlDirectory+"skidump_"+str(currentNmeaLogDate.day)+"_"+str(currentNmeaLogDate.month)+"_"+str(currentNmeaLogDate.year)+".kml")
 
-#TODO build csv files
+#build a file with all the cable car
+kml = Kml()
+for line in lineList:
+    kml.newlinestring(name=str(firstPos.newTime), description="", coords=[(line.startPoint.longitude,line.startPoint.latitude),(line.endPoint.longitude,line.endPoint.latitude)])
+    
+kml.save(kmlDirectory+"cablecar.kml")
 
+#build csv files
+csvFiles = open("./output"+".csv", 'w')
+csvFiles.write("UID;date;hour;minute seconds;position;cablecar;accuracy;data\n")
+sectorToGet = [0x02,0x2f,0x30,0x31]
+for dumpFile in dumpFiles:
+    if dumpFile.cablecarInformation == None:
+        continue
+    
+    dataString = ""
+    
+    for i in sectorToGet:
+        value = dumpFile.getSector(i)
+        tmpString = bin(value)
+        tmpString = tmpString[2:]
+        zeroToAdd = 32 - len(tmpString)
+        for i in range(0,zeroToAdd):
+            tmpString = "0"+tmpString
+        
+        dataString += tmpString+" "
+    
+    csvFiles.write(str(dumpFile.UID)+";"+dumpFile.dumpEvent.newTime.strftime("%d %A %B %Y %H:%M:%S")+";"+dumpFile.dumpEvent.newTime.strftime("%d %A %B %Y %H:%M:%S")+";"+dumpFile.dumpEvent.newTime.strftime("%d %A %B %Y %H:%M:%S")+";"+str(dumpFile.latitude)+" "
+    +str(dumpFile.longitude)+";"+dumpFile.cablecarInformation[2]+";"+str((dumpFile.cablecarInformation[0]*1000))+" meters "+dumpFile.cablecarInformation[1]+";"+dataString+"\n")
+
+csvFiles.close()
 
 #rewrite all the files
-for d in dumpFiles:
-    d.rewrite("/home/djo/developement/raw/dumper/dump/updated/")
+for dumpFile in dumpFiles:
+    dumpFile.rewrite("/home/djo/developement/raw/dumper/dump/updated/")
 
 
 

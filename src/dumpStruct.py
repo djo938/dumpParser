@@ -1,29 +1,36 @@
 #!/usr/bin/python
 from utils import *
-from datetime import time
+from datetime import time,datetime
 from logException import LogParseException
 
 class FileDump(object):
     def __init__(self,File):
         self.File = File
         f = open(File, 'r')
-        indice = 0
         self.lines = []
+        self.sectorValue = {}
         
         #get UID from file name
         #dump_E016246604C06B7A_6h2s6.txt
         underscoreSplit = File.split("_")
+        
         if len(underscoreSplit) != 3:
             raise LogParseException("(FileDump) __init__, invalid file name, undescrore split",line)
         
         self.UID = underscoreSplit[1]
+        self.readType = None
+        self.pixnn = None
+        self.pixss = None
+        self.cablecar = None
+        self.time = datetime.now().timetz()
+        self.date = datetime.now().date()
         
         for line in f:
-            if indice == 0: #position
+            if line.startswith("Position :"): #PARSE NNMEA POSITION
                 self.longitude,self.latitude,self.fixtime = extractPosition(line)
-            elif indice == 1: #altitude
+            elif line.startswith("Altitude : "): #PARSE NMEA ALTITUDE
                 self.altitude,self.unit,self.altFixtime = extractAltitude(line)
-            elif indice == 2: #Heure : 6h2s6
+            elif line.startswith("Heure : "): #PARSE TIME
                 splittedDoublePoint = line.split(":")
                 if len(splittedDoublePoint) != 2:
                     raise LogParseException("(FileDump) __init__, invalid hour, double point split",line)
@@ -45,34 +52,119 @@ class FileDump(object):
                     self.time = time(int(self.hour),int(self.minute),int(self.seconde))
                 except ValueError as ve:
                     raise LogParseException("(FileDump) __init__, invalid time, cast error : "+str(ve),line)
+            elif line.startswith("Date : "):
+                pass #TODO
+            elif line.startswith("Degrees position : "):
+                pass #TODO
+            elif line.startswith("Cablecar : "):
+                splittedDoublePoint = line.split(":")
+                if len(splittedDoublePoint) != 2:
+                    raise LogParseException("(FileDump) __init__, invalid pix.SS, double point split",line)
                 
-            indice += 1
-            self.lines.append(line)
+                self.cablecar = splittedDoublePoint[1].strip()
+            elif line.startswith("UID : "):
+                pass #invalid uid in files
+            elif line.startswith("PIX.SS : "):
+                splittedDoublePoint = line.split(":")
+                if len(splittedDoublePoint) != 2:
+                    raise LogParseException("(FileDump) __init__, invalid pix.SS, double point split",line)
+                
+                self.pixss = splittedDoublePoint[1].strip()
+            elif line.startswith("PIX.NN : "):
+                splittedDoublePoint = line.split(":")
+                if len(splittedDoublePoint) != 2:
+                    raise LogParseException("(FileDump) __init__, invalid pix.NN, double point split",line)
+                
+                self.pixnn = splittedDoublePoint[1].strip()
+            elif line.startswith("read type : "):
+                splittedDoublePoint = line.split(":")
+                if len(splittedDoublePoint) != 2:
+                    raise LogParseException("(FileDump) __init__, invalid read type, double point split",line)
+                
+                self.readType = splittedDoublePoint[1].strip()
+                
+            elif line.startswith("sector "):
+                #sector 1c: 2A:80:53:42 (Unlocked)
+                splitSpaceToken = line.split(" ")
+                
+                if len(splitSpaceToken) < 3:
+                    raise LogParseException("(FileDump) __init__, invalid sector line, space split",line)
+                
+                value = splitSpaceToken[2]
+                value = value.replace(":","")
+                
+                key = splitSpaceToken[1]
+                key = key.replace(":","")
+                
+                try:
+                    self.sectorValue[int(key,16)]=int(value,16)
+                except ValueError as va:
+                    raise LogParseException("(FileDump) __init__, invalid sector key/value, cast error : "+str(va),line)
+                
+            else:
+                #TODO raise something ?
             
-            self.eventLog = None #link to the dump log event
-            self.nmeaEvent = None #link to the nmea log event
+                self.lines.append(line)
+            
+            self.datetime = datetime.combine(self.date,self.time)
+            #TODO faire en sorte de ne plus avoir ces infos dans la classe, mais directement les lat/lon/datetime/etc
+            #self.eventLog = None #link to the dump log event
+            #self.nmeaEvent = None #link to the nmea log event
+            self.cablecarInformation = None
                 
     def __str__(self):
         return "(FileDump) at "+str(self.hour)+":"+str(self.minute)+":"+str(self.seconde)+" long="+str(self.longitude)+" lat="+str(self.latitude)+" fix="+str(self.fixtime)+", alt="+str(self.altitude)+str(self.unit)+" fix="+str(self.fixtime)
-        
+    
+    def getSector(self, sectorIndex):
+        return self.sectorValue[sectorIndex]
+    
     def rewrite(self,directory="./"):
     
-        #TODO UID dans le nom de fichier
-        f = open(directory+"dump_"+self.eventLog.newTime.strftime("%d_%A_%B_%Y_%Hh%Ms%S")+".txt", 'w')
+        f = open(directory+"dump_"+str(self.UID)+"_"+self.datetime.strftime("%d_%B_%Y_%Hh%Ms%S")+".txt", 'w')
 
-        for i in range(0,len(self.lines)):
-            if i == 2:
-                f.write("Heure : "+self.eventLog.newTime.strftime("%Hh%Ms%S")+"\n")
-                continue
+        #write position
+        if self.longitude != None and self.latitude != None and self.fixtime != None:
+            f.write("Degrees position : "+str(self.latitude)+" "+str(self.longitude)+", fix time : "+str(self.fixtime)+"\n")
         
-            #TODO remplacer la ligne contenant l'uid par une ligne avec l'UID venant du nom de fichier
+        #write altitude
+        if self.altitude!= None and self.unit != None and self.altFixtime != None:
+            f.write("Altitude : "+str(self.altitude)+" "+str(self.unit)+", fix time : "+str(self.altFixtime)+"\n")
         
-            #TODO write sector 1c,1d,1e at their correct places
+        #write hour
+        f.write("Heure : "+self.datetime.strftime("%Hh%Ms%S")+"\n")
+        
+        #write date
+        f.write("Date : "+self.datetime.strftime("%d/%m/%Y")+"\n")
+        
+        #TODO mettre les milliseconds quelque part
+        
+        #write UID (hex)
+        #TODO f.write("UID : %x\n"%self.UID)
+            #prblm, uid is string
+        
+        #write UID (dec)
+        f.write("UID : "+self.UID+"\n")
+        
+        #write PIX.SS
+        if self.pixss != None: 
+            f.write("PIX.SS : "+self.pixss+"\n")
             
-            #TODO remplacer la ligne des coordonnees gps par les coordonnees calculees en degree
-        
+        #write PIX.NN
+        if self.pixss != None: 
+            f.write("PIX.NN : "+self.pixnn+"\n")
+            
+        #write read type
+        if self.readType != None: 
+            f.write("read type : "+self.readType+"\n")
+            
+        #write unknown data
+        for line in self.lines:
             f.write(self.lines[i])
-            
+        
+        #write data sector
+        keys = sorted(self.sectorValue.keys())
+        for key in keys:
+            f.write("sector %0.2x: %0.8x\n"%(key,self.sectorValue[key]))            
             
         f.close()
         

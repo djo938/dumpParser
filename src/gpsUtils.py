@@ -101,9 +101,9 @@ def sortDistance(x,y):
     
     return int(disX-disY)
 
-DISTANCEFROMLINE = 0
-DISTANCEFROMSTARTPOINT = 1
-DISTANCEFROMENDPOINT = 2
+DISTANCEFROMLINE = "from line"
+DISTANCEFROMSTARTPOINT = "from starting point"
+DISTANCEFROMENDPOINT = "from end point"
 
 def findThenearestLine(pointXLat,pointXLon):
     nearest = (sys.maxint,DISTANCEFROMLINE,"the farest")
