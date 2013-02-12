@@ -8,6 +8,7 @@ from dumpEvent import dumpNewDumpEvent
 from nmeaEvent import nmeaNewPositionEvent
 from logException import LogParseException
 from gpsUtils import *
+import math
 
 #nmeaLogDirectory = "/Volumes/Home/Downloads/root/nmea/log/"
 nmeaLogDirectory = "/home/djo/developement/raw/nmea/log/"
@@ -20,6 +21,9 @@ dumpDirectory    = "/home/djo/developement/raw/dumper/dump/"
 
 #kmlDirectory = "/Volumes/Home/Downloads/root/nmea/kml/"
 kmlDirectory = "/home/djo/developement/raw/nmea/kml/"
+
+#updatedFilesDirectory = "/Volumes/Home/Downloads/root/dumper/dump/updated"
+updatedFilesDirectory = "/home/djo/developement/raw/dumper/dump/updated/"
 
 KML_LINE_POINT_LIMIT = 200
 
@@ -136,7 +140,7 @@ for dumpFile in dumpFiles:
             break
         elif len(dumpEventMatch) > 1: #several dump found, take the first and no need to try with a bigger limit
             #take the first, because there is no way to know which is the correct dump event
-            print "    WARNING, several log correspondance for file "+dumpFile.File
+            print "    WARNING, several dump log correspondance for file "+dumpFile.File
             dumpFile.dumpEvent = dumpEventMatch[0]
             dumpEventMatch[0].log.dumps.append(dumpFile)
             for de in dumpEventMatch:
@@ -264,7 +268,7 @@ for dumpLog in dumpLogs: #pour tous les logs
         if dEvent.newTime == None:
             dEvent.newTime = dEvent.time + timeDelta
             
-#TODO compute gps position for the file without gps data
+##### TODO compute gps position for the file without gps data #############################################
     #Position : 0000.0000N 00000.0000E, fix time : 074407  in list whitoutGpsFixFiles (16 items)
     #Position : unknown  in list whitoutGpsDataFiles (6 items)
         #for this kind of files, check if the dumpLog is linked to a nmeaLog, otherwise it will be impossible to find a position range
@@ -291,46 +295,65 @@ for dumpLog in dumpLogs: #pour tous les logs
             hight = mid
     print low,hight"""
 print "    Done !"
+print ""
+
+##### find the cablecar attached to each dump file ########################################################
 print "linked gps data to cable car"
-#find the cablecar attached to each dump file
+
 gondolaMatch = 0
 gondolaNotMatch = 0
+pauseMatch = 0
 
 pausePoint = [gpsPoint(45.324157,6.53898),gpsPoint(45.377333,6.504793),gpsPoint(45.380217,6.504257),gpsPoint(45.382075,6.5027),gpsPoint(45.381098,6.503282)]
 
 for dumpFile in dumpFiles:
     if dumpFile.latitude != None and dumpFile.latitude != 0.0 and dumpFile.longitude != None and dumpFile.longitude != 0.0:
+        
+        #hack to correct gps fix in two dump
+        if math.fabs(dumpFile.latitude-45.3646183333) < 0.0000000001 and math.fabs(dumpFile.longitude-6.55735666667) < 0.0000000001:
+            dumpFile.latitude = 45.392351
+            dumpFile.longitude = 6.569199
+    
+    
         gondola = findThenearestLine(  dumpFile.latitude,  dumpFile.longitude  )
         
         #check if the position is not a pause area (lunchtime, etc.)
         pause = False
         for ppoint in pausePoint:
-            if getDistance(dumpFile.latitude,  dumpFile.longitude,ppoint.latitude,  ppoint.longitude) < 0.010:
+            if getDistance(dumpFile.latitude,  dumpFile.longitude,ppoint.latitude,  ppoint.longitude) < 0.010: #10 metres d'un point de pause
                 pause = True
+                pauseMatch += 1
+                break
                 
         if pause:
             continue
 
-        dumpFile.cablecarInformation = gondola
+        dumpFile.cablecar = gondola[2].name
+        dumpFile.skiSector = gondola[2].sectorName
+        dumpFile.cablecarPrecision = gondola[0]
+        dumpFile.cablecarPrecisionType = gondola[1]
 
-        if gondola[0] > 0.020:
-            print "    Warning, long distance match : lat="+str(dumpFile.latitude)+", lon="+str(dumpFile.longitude)+str(  gondola   )
+        if gondola[0] > 0.020: #20 metres d'un point de rm
+            print "    Warning, long distance match, "+str(gondola[0]*1000)+" "+str(gondola[1])+" : lat="+str(dumpFile.latitude)+", lon="+str(dumpFile.longitude)+str(  gondola   )
             gondolaNotMatch +=1
         else:
             #afficher quand la distance est prise du sommet, c'est peu etre anormal
-            if gondola[0] == 2:
-                print "    Warning, match at the endStation : lat="+str(dumpFile.latitude)+", lon="+str(dumpFile.longitude)+str(  gondola   )
+            if gondola[1] == DISTANCEFROMENDPOINT:
+                print "    Warning, match at the endStation, "+str(gondola[0]*1000)+" "+str(gondola[1])+" : lat="+str(dumpFile.latitude)+", lon="+str(dumpFile.longitude)+str(  gondola   )
             gondolaMatch +=1
 
-print "    gondolaPerfectMatch="+str(gondolaMatch)
+print "    gondolaPerfectMatch ="+str(gondolaMatch)
 print "    gondolaAbnormalMatch="+str(gondolaNotMatch)
+print "    pauseMatch          ="+str(pauseMatch)
 print "    Done !"
+print ""
 
 ############################################################################################################
 ###### DATA SAVE ###########################################################################################
 ############################################################################################################
 
-#BUILD KML FILES
+###### BUILD KML FILES #####################################################################################
+print "build kml files"
 UIDtoColor = {"E016246604C06B7A" : "http://maps.gstatic.com/mapfiles/ms2/micons/red-dot.png", 
               "E016246604C06BA0" : "http://maps.gstatic.com/mapfiles/ms2/micons/blue-dot.png", 
               "E016246604C070DE" : "http://maps.gstatic.com/mapfiles/ms2/micons/yellow-dot.png", 
@@ -397,7 +420,7 @@ for nmeaLog in nmeaLogs:
     
     if nmeaLog.dumpLog != None :
         for dumpFile in nmeaLog.dumpLog.dumps:
-            if dumpFile.nmeaEvent.longitude == 0.0 and dumpFile.nmeaEvent.latitude == 0.0:
+            if dumpFile.latitude == None or dumpFile.longitude == None or (dumpFile.latitude == 0.0 and dumpFile.longitude == 0.0):
                 continue
         
             dumpTime = str(dumpFile.dumpEvent.newTime.hour)+":"+str(dumpFile.dumpEvent.newTime.minute)+":"+str(dumpFile.dumpEvent.newTime.second)
@@ -406,27 +429,29 @@ for nmeaLog in nmeaLogs:
             if dumpFile.UID in UIDtoColor:
                  point.style.iconstyle.icon.href = UIDtoColor[dumpFile.UID]
             else:
-                print "warning unknown UID : "+str(dumpFile.UID)
+                print "    warning unknown UID : "+str(dumpFile.UID)
 
     else:
-        print "warning, no dumpLog linked to "+str(nmeaLog)
+        print "    warning, no dumpLog linked to "+str(nmeaLog)
 
 
 kml.save(kmlDirectory+"skidump_"+str(currentNmeaLogDate.day)+"_"+str(currentNmeaLogDate.month)+"_"+str(currentNmeaLogDate.year)+".kml")
 
-#build a file with all the cable car
+###### build a file with all the cable car #######################################################################
 kml = Kml()
 for line in lineList:
     kml.newlinestring(name=str(firstPos.newTime), description="", coords=[(line.startPoint.longitude,line.startPoint.latitude),(line.endPoint.longitude,line.endPoint.latitude)])
     
 kml.save(kmlDirectory+"cablecar.kml")
+print "    Done !"
+print ""
 
-#build csv files
+###### build csv files ###########################################################################################
 csvFiles = open("./output"+".csv", 'w')
 csvFiles.write("UID;date;hour;minute seconds;position;cablecar;accuracy;data\n")
 sectorToGet = [0x02,0x2f,0x30,0x31]
 for dumpFile in dumpFiles:
-    if dumpFile.cablecarInformation == None:
+    if dumpFile.cablecar == None:
         continue
     
     dataString = ""
@@ -441,14 +466,17 @@ for dumpFile in dumpFiles:
         
         dataString += tmpString+" "
     
-    csvFiles.write(str(dumpFile.UID)+";"+dumpFile.dumpEvent.newTime.strftime("%d %A %B %Y %H:%M:%S")+";"+dumpFile.dumpEvent.newTime.strftime("%d %A %B %Y %H:%M:%S")+";"+dumpFile.dumpEvent.newTime.strftime("%d %A %B %Y %H:%M:%S")+";"+str(dumpFile.latitude)+" "
-    +str(dumpFile.longitude)+";"+dumpFile.cablecarInformation[2]+";"+str((dumpFile.cablecarInformation[0]*1000))+" meters "+dumpFile.cablecarInformation[1]+";"+dataString+"\n")
+    csvFiles.write(str(dumpFile.UID)+";"+dumpFile.dumpEvent.newTime.strftime("%d %A %B %Y")+";"+dumpFile.dumpEvent.newTime.strftime("%H")+";"+dumpFile.dumpEvent.newTime.strftime("%M:%S")+";"+str(dumpFile.latitude)+" "
+    +str(dumpFile.longitude)+";"+dumpFile.cablecar+";"+str((dumpFile.cablecarPrecision*1000))+" meters "+dumpFile.cablecarPrecisionType+";"+dataString+"\n")
 
 csvFiles.close()
 
-#rewrite all the files
+###### rewrite all the files #######################################################################################
 for dumpFile in dumpFiles:
-    dumpFile.rewrite("/home/djo/developement/raw/dumper/dump/updated/")
+    if dumpFile.latitude == None or dumpFile.longitude == None or (dumpFile.latitude == 0.0 and dumpFile.longitude == 0.0) or dumpFile.cablecar == None:
+        continue
+
+    dumpFile.rewrite(updatedFilesDirectory)
 
 
 
